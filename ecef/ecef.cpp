@@ -3,6 +3,60 @@
 
 #include "ecef.hpp"
 
+void ECEF::rx(double theta, double (*mat)[3]) {
+    mat[0][0] = 1.0;
+    mat[0][1] = 0.0;
+    mat[0][2] = 0.0;
+    mat[1][0] = 0.0;
+    mat[1][1] = cos(theta * M_PI / 180.0);
+    mat[1][2] = sin(theta * M_PI / 180.0);
+    mat[2][0] = 0.0;
+    mat[2][1] = -sin(theta * M_PI / 180.0);
+    mat[2][2] = cos(theta * M_PI / 180.0);
+}
+
+void ECEF::ry(double theta, double (*mat)[3]) {
+    mat[0][0] = cos(theta * M_PI / 180.0);
+    mat[0][1] = 0.0;
+    mat[0][2] = -sin(theta * M_PI / 180.0);
+    mat[1][0] = 0.0;
+    mat[1][1] = 1.0;
+    mat[1][2] = 0.0;
+    mat[2][0] = sin(theta * M_PI / 180.0);
+    mat[2][1] = 0.0;
+    mat[2][2] = cos(theta * M_PI / 180.0);
+}
+
+void ECEF::rz(double theta, double (*mat)[3]) {
+    mat[0][0] = cos(theta * M_PI / 180.0);
+    mat[0][1] = sin(theta * M_PI / 180.0);
+    mat[0][2] = 0.0;
+    mat[1][0] = -sin(theta * M_PI / 180.0);
+    mat[1][1] = cos(theta * M_PI / 180.0);
+    mat[1][2] = 0.0;
+    mat[2][0] = 0.0;
+    mat[2][1] = 0.0;
+    mat[2][2] = 1.0;
+}
+
+void ECEF::mm(double (*mat_a)[3], double (*mat_b)[3], double (*mat_answer)[3]) {
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                mat_answer[i][j] += mat_a[i][k] * mat_b[k][j];
+            }
+        }
+    }
+}
+
+void ECEF::mv(double (*mat_a)[3], double *mat_b, double *mat_answer) {
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            mat_answer[i] += mat_a[i][j] * mat_b[j];
+        }
+    }
+}
+
 // WGS84 to ECEF
 // input :: phi = latitude, lambda = longitude, height = height
 // output :: vector (x, y, z)
@@ -12,7 +66,7 @@ vector<double> ECEF::bih2ecef(double phi, double lambda, double height) {
     double z = (ECEF::n(phi) * (1 - e2) + height) * sin(phi * M_PI / 180.0);
     vector<double> xyz{x, y, z};
     return xyz;
-    }
+}
 
 // WGS84 to ECEF
 // input :: vector(latitude, longitude, height)
@@ -55,4 +109,92 @@ vector<double> ECEF::ecef2bih(vector<double> xyz) {
     double height = (p / cos(phi * M_PI / 180.0)) - n(phi);
     vector<double> bih{phi, lambda, height};
     return bih;
+}
+
+vector<double> ECEF::ecef2enu(vector<double> ecef_dest, vector<double> ecef_origin) {
+    double rot0[3][3];
+    double rot1[3][3];
+    double rot2[3][3];
+    double m[3][3];
+    double r[3][3];
+    double p[3] = {ecef_dest[0] - ecef_origin[0], ecef_dest[1] - ecef_origin[1], ecef_dest[2] - ecef_origin[2]};
+    double enu_a[3];
+
+    vector<double> bih = ecef2bih(ecef_origin);
+
+    rz(90.0 * M_PI / 180.0, rot0);
+    ry((90.0 - bih[0]) * M_PI / 180.0, rot1);
+    rz(bih[2] * M_PI / 180.0, rot2);
+
+    mm(rot0, rot1, m);
+    mm(m, rot2, r);
+    mv(r, p, enu_a);
+
+    vector<double> enu = {enu_a[0], enu_a[1], enu_a[2]};
+    return enu;
+}
+
+
+vector<double> ECEF::bih2enu(vector<double> bih_dest, vector<double> bih_origin) {
+    vector<double> ecef_dest = bih2ecef(bih_dest);
+    vector<double> ecef_origin = bih2ecef(bih_origin);
+    
+    double rot0[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+    double rot1[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+    double rot2[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+    double m[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+    double r[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+    double p[3];
+    for (int i = 0; i < 3; i++) {
+        p[i] = ecef_dest[i] - ecef_origin[i];
+    }
+    double enu_a[3] = {0.0, 0.0, 0.0};
+
+    vector<double> bih = ecef2bih(ecef_origin);
+
+    rz(90.0, rot0);
+    ry(90.0 - bih[0], rot1);
+    rz(bih[1], rot2);
+
+    mm(rot0, rot1, m);
+    mm(m, rot2, r);
+    mv(r, p, enu_a);
+
+    vector<double> enu = {enu_a[0], enu_a[1], enu_a[2]};
+    return enu;
+}
+
+double ECEF::enu2length(vector<double> enu) {
+    return sqrt(pow(enu[0], 2) + pow(enu[1], 2));
+}
+
+double ECEF::enu2angle(vector<double> enu) {
+    return atan(enu[1] / enu[0]) * 180.0 / M_PI;
+}
+
+double ECEF::enu2direction(vector<double> enu) {
+    double r = atan(enu[1] / enu[0]) * 180.0 / M_PI;
+    double direction;
+    if (enu[0] < 0 && enu[1] >= 0) direction = 270.0 + (180.0 - r);
+    else direction = 90.0 - r;
+    return direction;
+}
+
+double ECEF::bih2length(vector<double> bih_dest, vector<double> bih_origin) {
+    vector<double> enu = bih2enu(bih_dest, bih_origin);
+    return sqrt(pow(enu[0], 2) + pow(enu[1], 2));
+}
+
+double ECEF::bih2angle(vector<double> bih_dest, vector<double> bih_origin) {
+    vector<double> enu = bih2enu(bih_dest, bih_origin);
+    return atan(enu[1] / enu[0]) * 180.0 / M_PI;
+}
+
+double ECEF::bih2direction(vector<double> bih_dest, vector<double> bih_origin) {
+    vector<double> enu = bih2enu(bih_dest, bih_origin);
+    double r = atan(enu[1] / enu[0]) * 180.0 / M_PI;
+    double direction;
+    if (enu[0] < 0 && enu[1] >= 0) direction = 270.0 + (180.0 - r);
+    else direction = 90.0 - r;
+    return direction;
 }

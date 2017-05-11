@@ -26,6 +26,11 @@ class ECEF {
         double n(double p) {
             return a / sqrt(1.0 - e2 * pow(sin(p * M_PI / 180.0), 2));
         }
+        void rx(double theta, double (*mat)[3]);
+        void ry(double theta, double (*mat)[3]);
+        void rz(double theta, double (*mat)[3]);
+        void mm(double (*mat_a)[3], double (*mat_b)[3], double (*mat_answer)[3]);
+        void mv(double (*mat_a)[3], double *mat_b, double *mat_answer);
 
     public:
         // WGS84 to ECEF
@@ -47,6 +52,20 @@ class ECEF {
         // input :: vector (x, y, z)
         // output :: vector (latitude, longitude, height)
         vector<double> ecef2bih(vector<double> xyz);
+
+        // ENU
+        vector<double> ecef2enu(vector<double> ecef_dest, vector<double> ecef_origin);
+        vector<double> bih2enu(vector<double> bih_dest, vector<double> bih_origin);
+
+        // ENU to length, angle
+        double enu2length(vector<double> enu);
+        double enu2angle(vector<double> enu);
+        double enu2direction(vector<double> enu);
+
+        // BIH to length, angle
+        double bih2length(vector<double> bih_dest, vector<double> bih_origin);
+        double bih2angle(vector<double> bih_dest, vector<double> bih_origin);
+        double bih2direction(vector<double> bih_dest, vector<double> bih_origin);
 };
 
 #endif
