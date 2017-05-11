@@ -1,0 +1,13 @@
+#include "ecef.hpp"
+
+#include <vector>
+
+int main() {
+    ECEF ecef;
+    vector<double> bih{38.13579617, 140.91581617, 41.940};
+    vector<double> xyz = ecef.bih2ecef(bih);
+    vector<double> bih2 = ecef.ecef2bih(xyz);
+    cout << fixed << xyz[0] << " " << fixed << xyz[1] << " " << fixed << xyz[2] << " " << endl;
+    cout << fixed << bih2[0] << " " << fixed << bih2[1] << " " << fixed << bih2[2] << " " << endl;
+    return 0;
+}
